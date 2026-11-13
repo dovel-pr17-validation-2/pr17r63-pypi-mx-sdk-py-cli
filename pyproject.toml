@@ -24,8 +24,8 @@ dependencies = [
   "requests>=2.32.0,<3.0.0",
   "ledgercomm[hid]",
   "rich==13.3.4",
-  "argcomplete==3.2.2",
-  "multiversx-sdk[ledger]==3.0.0"
+  "argcomplete==3.7.2",
+  "multiversx-sdk[ledger]==3.0.1"
 ]
 
 [project.scripts]
