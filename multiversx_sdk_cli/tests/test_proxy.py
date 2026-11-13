@@ -1,0 +1,70 @@
+from types import SimpleNamespace
+from typing import Any
+
+from multiversx_sdk import Address, NetworkProviderConfig, ProxyNetworkProvider
+
+from multiversx_sdk_cli.cli import main
+from multiversx_sdk_cli.cli_shared import set_proxy_from_config_if_not_provided
+from multiversx_sdk_cli.config import get_config_for_network_providers
+from multiversx_sdk_cli.config_env import MxpyEnv
+
+
+def test_sync_nonce():
+    account = Address.new_from_bech32("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th")
+    config = get_config_for_network_providers()
+    proxy = ProxyNetworkProvider("https://testnet-api.multiversx.com", config=config)
+    nonce = proxy.get_account(account).nonce
+    assert True if nonce else False
+
+
+def test_query_contract():
+    result = main(
+        [
+            "contract",
+            "query",
+            "erd1qqqqqqqqqqqqqpgq6qr0w0zzyysklfneh32eqp2cf383zc89d8sstnkl60",
+            "--function",
+            "getSum",
+            "--proxy",
+            "https://devnet-api.multiversx.com",
+        ]
+    )
+    assert False if result else True
+
+
+def test_proxy_extra_headers():
+    from unittest.mock import MagicMock, patch
+
+    config = NetworkProviderConfig(requests_options={"headers": {"x-custom-header": "test"}})
+    proxy = ProxyNetworkProvider("", config=config)
+
+    def echo_headers(url: str, **kwargs: Any):
+        received_headers = kwargs.get("headers", {})
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": {"headers": received_headers}, "error": "", "code": "successful"}
+        return mock_resp
+
+    with patch("requests.Session.get", side_effect=echo_headers):
+        response = proxy.do_get_generic("headers")
+        headers = response.get("headers", {})
+        assert headers["x-custom-header"] == "test"
+
+
+def test_env_proxy_headers_are_applied_when_cli_headers_missing():
+    from unittest.mock import patch
+
+    args = SimpleNamespace(proxy="", proxy_headers=None)
+    env = MxpyEnv(
+        address_hrp="erd",
+        proxy_url="https://devnet-api.multiversx.com",
+        proxy_headers={"x-custom-header": "test", "authorization": "Bearer token"},
+        explorer_url="",
+        ask_confirmation=False,
+    )
+
+    with patch("multiversx_sdk_cli.cli_shared.MxpyEnv.from_active_env", return_value=env):
+        set_proxy_from_config_if_not_provided(args)
+
+    assert args.proxy == "https://devnet-api.multiversx.com"
+    assert args.proxy_headers == ["x-custom-header=test", "authorization=Bearer token"]
